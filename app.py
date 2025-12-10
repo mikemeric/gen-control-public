@@ -1,5 +1,5 @@
 # ==============================================================================
-# GEN-CONTROL V1.1 - VERSION ULTIME (Avec DISCLAIMER LÉGAL)
+# GEN-CONTROL V1.1 - VERSION ULTIME (Paiement Manuel & Admin V1.1.5)
 # ==============================================================================
 import streamlit as st
 import os
@@ -14,6 +14,7 @@ from security import EnhancedSecurityManager
 from physics import IsoWillansModel, ReferenceEngineLibrary, AtmosphericParams
 from analytics import DetailedLoadFactorManager, IntelligentAnomalyDetector, AdaptiveLearningEngine
 from reports import PDFReportGenerator
+from payments import render_payment_page  # <--- MODULE PAIEMENT
 
 # ==========================================
 # CONFIGURATION DE LA PAGE
@@ -59,7 +60,7 @@ def render_auth():
         st.markdown("<h1 style='text-align: center;'>🔐 GEN-CONTROL</h1>", unsafe_allow_html=True)
         st.markdown("<h5 style='text-align: center; color: gray;'>Powered by DI-SOLUTIONS</h5>", unsafe_allow_html=True)
         
-        # --- DISCLAIMER JURIDIQUE (AJOUTÉ ICI) ---
+        # --- DISCLAIMER JURIDIQUE ---
         st.warning("""
         ⚠️ **AVERTISSEMENT LÉGAL IMPORTANT**
         
@@ -68,7 +69,6 @@ def render_auth():
         
         **DI-SOLUTIONS décline toute responsabilité quant à l'utilisation des résultats pour des sanctions disciplinaires sans confirmation par une expertise technique approfondie.**
         """)
-        # -----------------------------------------
         
         tab_login, tab_signup = st.tabs(["Se connecter", "Créer un compte (Gratuit)"])
         
@@ -167,7 +167,6 @@ def render_audit_page():
 
     with st.container():
         st.markdown("---")
-        # UI : LABELS EXPLICITES + TOOLTIPS
         c1, c2, c3 = st.columns(3)
         start_h = c1.number_input(
             "⏱️ Début (Heures)", 
@@ -183,7 +182,6 @@ def render_audit_page():
     
     hours = end_h - start_h
     
-    # FEEDBACK VISUEL IMMÉDIAT
     if hours > 0:
         st.markdown(f'<div class="info-duration">ℹ️ Durée de fonctionnement : {hours:.1f} Heures</div>', unsafe_allow_html=True)
     elif hours < 0:
@@ -191,27 +189,27 @@ def render_audit_page():
     
     # --- ASSISTANT DE CHARGE VISUEL ---
     with st.expander("⚙️ Avancé (Réglage de la Charge Moteur)", expanded=False):
-        # 1. Le Slider
         load_val = st.slider("Charge Moyenne Estimée (%)", 0, 100, int(selected_scenario.load_typ * 100))
         manual_load = load_val / 100.0
 
-        # 2. L'Assistant Visuel (Le Guide Intégré)
         if load_val <= 10:
             st.info(f"💤 **{load_val}% - RALENTI / REPOS** : Moteur tourne à vide (Chauffe matin, Clim à l'arrêt).")
         elif load_val <= 25:
             st.success(f"🏗️ **{load_val}% - STATIONNAIRE (PTO)** : Toupie béton, Grue, Benne. Le camion ne roule pas mais travaille.")
         elif load_val <= 45:
-            st.success(f"🚚 **{load_val}% - ROUTE MIXTE / MOYENNE** : Trajet national avec villages, descentes et plats. (Ex: Votre HOWO sur 150km).")
+            st.success(f"🚚 **{load_val}% - ROUTE MIXTE / MOYENNE** : Trajet national avec villages, descentes et plats.")
         elif load_val <= 65:
             st.warning(f"🚛 **{load_val}% - TRACTION SOUTENUE** : Autoroute rapide chargée ou route avec beaucoup de faux-plats.")
         elif load_val <= 85:
-            st.error(f"⛰️ **{load_val}% - MONTAGNE / DIFFICILE** : Montée de col (Falaise), Piste boueuse, Surcharge importante.")
+            st.error(f"⛰️ **{load_val}% - MONTAGNE / DIFFICILE** : Montée de col, Piste boueuse, Surcharge importante.")
         else:
             st.error(f"🔥 **{load_val}% - EXTRÊME (Surchauffe)** : Pied au plancher permanent. Rare sur longue durée.")
 
     is_quota_blocked = False
     if tier == 'DISCOVERY':
-        count_res = db.execute_read("SELECT COUNT(*) as c FROM audits") 
+        # QUOTA PAR UTILISATEUR
+        user = st.session_state['user']
+        count_res = db.execute_read("SELECT COUNT(*) as c FROM audits WHERE created_by = ?", (user,)) 
         count = count_res[0]['c'] if count_res else 0
         if count >= 3:
             is_quota_blocked = True
@@ -254,7 +252,9 @@ def render_audit_page():
         with c_save:
             if st.button("💾 SAUVEGARDER"):
                 uid = str(uuid.uuid4())
-                db.execute_write("""INSERT INTO audits (audit_uuid, timestamp, equipment_id, materiel_type, materiel_name, scenario_code, index_start, index_end, power_kw, fuel_declared_l, estimated_min, estimated_typ, estimated_max, uncertainty_pct, deviation_pct, z_score, verdict, confidence_pct, validated_by_operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (uid, datetime.now().isoformat(), audit['eq_id'], eq_data['profile_base'], audit['eq_name'], audit['scenario'], audit['start'], audit['end'], eq_data['power_kw'], audit['fuel'], audit['est']*0.9, audit['est'], audit['est']*1.1, 10.0, audit['dev'], audit['z'], audit['verdict'], int(audit['conf']*100), 1))
+                user_record = st.session_state['user']
+                db.execute_write("""INSERT INTO audits (audit_uuid, timestamp, created_by, equipment_id, materiel_type, materiel_name, scenario_code, index_start, index_end, power_kw, fuel_declared_l, estimated_min, estimated_typ, estimated_max, uncertainty_pct, deviation_pct, z_score, verdict, confidence_pct, validated_by_operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
+                                 (uid, datetime.now().isoformat(), user_record, audit['eq_id'], eq_data['profile_base'], audit['eq_name'], audit['scenario'], audit['start'], audit['end'], eq_data['power_kw'], audit['fuel'], audit['est']*0.9, audit['est'], audit['est']*1.1, 10.0, audit['dev'], audit['z'], audit['verdict'], int(audit['conf']*100), 1))
                 st.success("Enregistré !")
                 pdf = st.session_state.pdf_gen.generate_audit_report({'audit_uuid': uid, 'equipment_name': audit['eq_name'], 'user': st.session_state['user'], 'fuel_declared': audit['fuel'], 'fuel_estimated': audit['est'], 'deviation': audit['dev'], 'verdict': audit['verdict'], 'scenario': audit['scenario'], 'hours': audit['hours']}, license_tier=tier)
                 st.session_state['current_pdf'] = pdf.getvalue()
@@ -270,26 +270,22 @@ def render_audit_page():
         if rows: st.dataframe([{'Date': r['timestamp'][:16], 'L': r['fuel_declared_l'], 'Verdict': r['verdict']} for r in rows], use_container_width=True)
 
 # ==========================================
-# 2. CALIBRATION (RESTAURÉ : VERSION PARFAITE V1.4)
+# 2. CALIBRATION (GESTION PARC)
 # ==========================================
 def render_calibration_page():
     st.markdown('<div class="main-header">🎯 Calibration & Gestion Parc</div>', unsafe_allow_html=True)
     st.subheader("📝 Nouvel Équipement")
     
-    # 1. Sélection du Type HORS DU FORMULAIRE (pour le refresh)
     type_eq = st.radio("Type d'équipement", ["Groupe Électrogène (GE)", "Camion / Poids-Lourd", "Engin BTP / Autre"], horizontal=True, key="equipment_type_selector")
     cat_map = {"Groupe Électrogène (GE)": "GE", "Camion / Poids-Lourd": "TRUCK", "Engin BTP / Autre": "OTHER"}
     selected_cat = cat_map[type_eq]
     
-    # 2. Filtrage dynamique
     engines_dict = ReferenceEngineLibrary.list_engines_by_type(selected_cat)
     if not engines_dict: engines_dict = {"GENERIC_ISO_DIESEL": "Standard Générique"}
     
-    # 3. Sélection Moteur HORS FORMULAIRE (refresh auto)
     profile_code = st.selectbox("Profil Moteur (ISO)", list(engines_dict.keys()), format_func=lambda x: engines_dict.get(x, x), key=f"engine_select_{selected_cat}")
     meta = ReferenceEngineLibrary.get_metadata(profile_code)
     
-    # 4. Calculs Préalables
     if selected_cat == "GE":
         unit_display = "kVA"; conversion_factor = 0.8 
     elif selected_cat == "TRUCK":
@@ -297,7 +293,6 @@ def render_calibration_page():
     else:
         unit_display = "kW"; conversion_factor = 1.0
     
-    # 5. Smart Lock Logic
     if meta.get('fixed_power_kw') is not None:
         if meta.get('display_rating'): val_affichee = float(meta['display_rating'])
         else: val_affichee = meta['fixed_power_kw'] / conversion_factor if conversion_factor != 0 else meta['fixed_power_kw']
@@ -306,11 +301,9 @@ def render_calibration_page():
     else:
         val_affichee = 100.0; is_locked = False; power_kw_internal = None
 
-    # 6. Affichage Debug Technique
     with st.expander("🔧 Informations Techniques & Debug", expanded=False):
         st.info(f"**Profil:** {meta.get('name', profile_code)} | **Puissance Interne:** {power_kw_internal if power_kw_internal else 'Variable'} kW | **État:** {'🔒 Verrouillé' if is_locked else '✏️ Modifiable'}")
 
-    # 7. FORMULAIRE D'ENREGISTREMENT
     with st.form("new_equipment_v1_final"):
         st.markdown("---")
         c1, c2 = st.columns(2)
@@ -319,12 +312,10 @@ def render_calibration_page():
         
         col_puissance, col_unite = st.columns([3, 1])
         with col_puissance:
-            # Clé dynamique unique pour forcer le refresh
             user_power_value = st.number_input("Puissance", min_value=1.0, max_value=50000.0, value=val_affichee, step=1.0, disabled=is_locked, key=f"power_input_{profile_code}_{selected_cat}", help="🔒 Valeur constructeur" if is_locked else "✏️ Saisie libre")
         with col_unite:
             st.metric("Unité", unit_display)
         
-        # Calcul Final avant sauvegarde
         if power_kw_internal is None: final_power_kw = user_power_value * conversion_factor
         else: final_power_kw = power_kw_internal
         
@@ -355,7 +346,7 @@ def render_calibration_page():
                     st.rerun()
 
 # ==========================================
-# 3. INTELLIGENCE (RESTREINT)
+# 3. INTELLIGENCE (CORPORATE ONLY)
 # ==========================================
 def render_learning_page():
     tier = st.session_state.get('license_tier', 'DISCOVERY')
@@ -371,17 +362,46 @@ def render_learning_page():
     if rows: st.dataframe([dict(r) for r in rows])
 
 # ==========================================
-# 4. ADMINISTRATION (RESTREINT)
+# 4. ADMINISTRATION (QG)
 # ==========================================
 def render_admin_page():
     if st.session_state.get('role') != 'admin' or st.session_state.get('license_tier') != 'CORPORATE':
         st.error("⛔ Accès Refusé.")
         return
 
-    st.markdown('<div class="main-header">🔐 Administration Système</div>', unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["👥 Gestion Utilisateurs", "💾 Base de Données"])
+    st.markdown('<div class="main-header">🔐 Administration (QG)</div>', unsafe_allow_html=True)
     
-    with tab1:
+    # ONGLETS DE GESTION
+    tab_money, tab_users, tab_db = st.tabs(["💰 Paiements EN ATTENTE", "👥 Utilisateurs", "💾 Base de Données"])
+    
+    # --- 1. GESTION DES PAIEMENTS MANUELS ---
+    with tab_money:
+        st.subheader("Validation des Paiements Mobile Money")
+        db = st.session_state.db
+        pendings = db.execute_read("SELECT * FROM transactions WHERE status = 'PENDING' ORDER BY timestamp DESC")
+        
+        if not pendings:
+            st.info("Aucune demande de paiement en attente. Tout est calme. 🍵")
+        else:
+            for p in pendings:
+                with st.expander(f"⏳ {p['amount']} FCFA - {p['username']} (ID: {p['mobile_money_id']})", expanded=True):
+                    c1, c2, c3 = st.columns([2,1,1])
+                    c1.write(f"**Date:** {p['timestamp']}\n\n**ID Transaction Client:** `{p['mobile_money_id']}`")
+                    
+                    if c2.button("✅ VALIDER", key=f"ok_{p['tx_ref']}"):
+                        db.approve_transaction(p['tx_ref'])
+                        st.success(f"Client {p['username']} passé en PRO !")
+                        time.sleep(1)
+                        st.rerun()
+                        
+                    if c3.button("❌ REFUSER", key=f"ko_{p['tx_ref']}"):
+                        db.reject_transaction(p['tx_ref'])
+                        st.warning("Transaction refusée.")
+                        time.sleep(1)
+                        st.rerun()
+
+    # --- 2. GESTION UTILISATEURS ---
+    with tab_users:
         st.subheader("Créer un nouvel utilisateur")
         with st.form("create_user_form"):
             c1, c2, c3 = st.columns(3)
@@ -397,11 +417,12 @@ def render_admin_page():
                     if success: st.success("Utilisateur créé !")
                     else: st.error(msg)
         
-        st.subheader("Utilisateurs")
-        users = st.session_state.db.execute_read("SELECT username, role, license_tier FROM users")
+        st.subheader("Liste des Utilisateurs")
+        users = st.session_state.db.execute_read("SELECT username, role, license_tier, subscription_end, signup_ip FROM users")
         if users: st.dataframe([dict(u) for u in users], use_container_width=True)
 
-    with tab2:
+    # --- 3. BACKUP ---
+    with tab_db:
         st.subheader("📦 Sauvegarde")
         db_files = [f for f in os.listdir('.') if f.endswith('.db')]
         if db_files:
@@ -427,8 +448,17 @@ def main():
         st.markdown(f'<span style="background-color:{colors.get(tier, "grey")}; padding:5px; border-radius:5px; color:white; font-weight:bold">{tier}</span>', unsafe_allow_html=True)
         st.caption(f"Connecté: {user} ({role})")
         
-        options = ["📱 Audit Terrain", "🎯 Calibration", "🧠 Intelligence"]
-        if role == 'admin' and tier == 'CORPORATE': options.append("🔐 Admin")
+        options = ["📱 Audit Terrain", "🎯 Calibration"]
+        
+        if tier == 'DISCOVERY':
+            options.append("💎 Devenir PRO")
+            
+        if tier == 'CORPORATE' or tier == 'PRO':
+            options.append("🧠 Intelligence")
+            
+        if role == 'admin' and tier == 'CORPORATE': 
+            options.append("🔐 Admin")
+            
         menu = st.radio("Menu", options)
         
         if st.button("Déconnexion"):
@@ -436,12 +466,13 @@ def main():
             del st.session_state['auth_token']
             st.rerun()
         st.markdown("---")
-        st.caption("DI-SOLUTIONS SARL v1.1")
+        st.caption("DI-SOLUTIONS SARL v1.1.5")
 
     if menu == "📱 Audit Terrain": render_audit_page()
     elif menu == "🎯 Calibration": render_calibration_page()
     elif menu == "🧠 Intelligence": render_learning_page()
     elif menu == "🔐 Admin": render_admin_page()
+    elif menu == "💎 Devenir PRO": render_payment_page()
 
 if __name__ == "__main__":
     main()
