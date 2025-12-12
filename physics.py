@@ -1,5 +1,5 @@
 # ==============================================================================
-# PHYSICS.PY - V1.1.3 (DATA CONSTRUCTEUR)
+# PHYSICS.PY - VERSION CORRECTIVE (Données Réelles)
 # ==============================================================================
 import math
 
@@ -10,46 +10,16 @@ class AtmosphericParams:
 
 class ReferenceEngineLibrary:
     ENGINE_DB = {
-        "GENERIC_GE": {
-            "name": "GÉNÉRIQUE GE (Saisie Manuelle)", "type": "GE", "power": 80.0,
-            "cylinders": "Variable", "aspiration": "Variable", "injection": "Standard", "desc": "Profil universel."
-        },
-        "CAT_C15_GEN": {
-            "name": "CATERPILLAR C15 (500 kVA)", "type": "GE", "power": 400.0,
-            "cylinders": "6 en ligne (15.2L)", "aspiration": "Turbo AA (Air-Air)", "injection": "MEUI (Électronique)", "desc": "Standard Industriel & Minier (C15 ACERT)."
-        },
-        "PERKINS_1104": {
-            "name": "PERKINS 1104C-44TAG2 (100 kVA)", "type": "GE", "power": 80.0,
-            "cylinders": "4 en ligne (4.4L)", "aspiration": "Turbo Intercooler", "injection": "Directe Mécanique", "desc": "Le standard des PME et Télécoms."
-        },
-        "CUMMINS_KTA19": {
-            "name": "CUMMINS KTA19-G4 (600 kVA)", "type": "GE", "power": 480.0,
-            "cylinders": "6 en ligne (19L)", "aspiration": "Turbo Aftercooled", "injection": "PT (Pressure-Time)", "desc": "Moteur lourd pour usage continu."
-        },
-        "GENERIC_TRUCK": {
-            "name": "GÉNÉRIQUE CAMION (Saisie Manuelle)", "type": "TRUCK", "power": 294.0,
-            "cylinders": "Variable", "aspiration": "Turbo", "injection": "Directe", "desc": "Tracteurs routiers standards."
-        },
-        "SINOTRUK_WD615": {
-            "name": "SINOTRUK HOWO 371 (WD615.47)", "type": "TRUCK", "power": 273.0,
-            "cylinders": "6 en ligne (9.7L)", "aspiration": "Turbo Intercooler", "injection": "Directe (Euro II)", "desc": "Moteur standard des bennes HOWO 6x4."
-        },
-        "VOLVO_D13": {
-            "name": "VOLVO D13 (440 CV)", "type": "TRUCK", "power": 324.0,
-            "cylinders": "6 en ligne (12.8L)", "aspiration": "Turbo (VGT)", "injection": "Injecteurs-Pompes (UIS)", "desc": "Tracteurs routiers Volvo FMX/FH."
-        },
-        "MERCEDES_OM501": {
-            "name": "MERCEDES ACTROS (V6 400 CV)", "type": "TRUCK", "power": 294.0,
-            "cylinders": "V6 (11.9L)", "aspiration": "Turbo Intercooler", "injection": "PLD", "desc": "Actros MP2/MP3."
-        },
-        "GENERIC_OTHER": {
-            "name": "GÉNÉRIQUE ENGIN (Saisie Manuelle)", "type": "OTHER", "power": 150.0,
-            "cylinders": "Variable", "aspiration": "Turbo", "injection": "Directe", "desc": "Pelles, Chargeuses, Dumpers."
-        },
-        "CAT_336": {
-            "name": "PELLE CAT 336 (C9.3)", "type": "OTHER", "power": 234.0,
-            "cylinders": "6 en ligne (9.3L)", "aspiration": "Turbo", "injection": "Common Rail", "desc": "Pelle hydraulique standard carrière."
-        }
+        "GENERIC_GE": {"name": "GÉNÉRIQUE GE (Saisie Manuelle)", "type": "GE", "power": 80.0, "cylinders": "Variable", "aspiration": "Variable", "injection": "Standard", "desc": "Profil universel."},
+        "CAT_C15_GEN": {"name": "CATERPILLAR C15 (500 kVA)", "type": "GE", "power": 400.0, "cylinders": "6 en ligne (15.2L)", "aspiration": "Turbo AA", "injection": "MEUI", "desc": "Standard Industriel & Minier."},
+        "PERKINS_1104": {"name": "PERKINS 1104C-44TAG2 (100 kVA)", "type": "GE", "power": 80.0, "cylinders": "4 en ligne (4.4L)", "aspiration": "Turbo Intercooler", "injection": "Directe", "desc": "Standard PME."},
+        "CUMMINS_KTA19": {"name": "CUMMINS KTA19-G4 (600 kVA)", "type": "GE", "power": 480.0, "cylinders": "6 en ligne (19L)", "aspiration": "Turbo Aftercooled", "injection": "PT", "desc": "Moteur lourd."},
+        "GENERIC_TRUCK": {"name": "GÉNÉRIQUE CAMION (Saisie Manuelle)", "type": "TRUCK", "power": 294.0, "cylinders": "Variable", "aspiration": "Turbo", "injection": "Directe", "desc": "Tracteurs routiers."},
+        "SINOTRUK_WD615": {"name": "SINOTRUK HOWO 371 (WD615.47)", "type": "TRUCK", "power": 273.0, "cylinders": "6 en ligne (9.7L)", "aspiration": "Turbo Intercooler", "injection": "Directe", "desc": "Bennes HOWO."},
+        "VOLVO_D13": {"name": "VOLVO D13 (440 CV)", "type": "TRUCK", "power": 324.0, "cylinders": "6 en ligne (12.8L)", "aspiration": "Turbo VGT", "injection": "UIS", "desc": "Tracteurs FMX/FH."},
+        "MERCEDES_OM501": {"name": "MERCEDES ACTROS (V6 400 CV)", "type": "TRUCK", "power": 294.0, "cylinders": "V6 (11.9L)", "aspiration": "Turbo", "injection": "PLD", "desc": "Actros MP2/MP3."},
+        "GENERIC_OTHER": {"name": "GÉNÉRIQUE ENGIN (Saisie Manuelle)", "type": "OTHER", "power": 150.0, "cylinders": "Variable", "aspiration": "Turbo", "injection": "Directe", "desc": "Pelles, Chargeuses."},
+        "CAT_336": {"name": "PELLE CAT 336 (C9.3)", "type": "OTHER", "power": 234.0, "cylinders": "6 en ligne (9.3L)", "aspiration": "Turbo", "injection": "Common Rail", "desc": "Pelle carrière."}
     }
 
     @staticmethod

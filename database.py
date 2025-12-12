@@ -1,5 +1,5 @@
 # ==============================================================================
-# DATABASE.PY - V1.1.3 (PATCH CRITIQUE ADMIN)
+# DATABASE.PY - VERSION CORRECTIVE (Fixe le crash Admin)
 # ==============================================================================
 import sqlite3
 import threading
@@ -37,25 +37,21 @@ class ThreadSafeDatabase:
 
     def _init_database(self):
         conn = self.get_connection(); c = conn.cursor()
-        
-        # TABLES
         c.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash BYTES NOT NULL, email TEXT, phone TEXT, company_name TEXT, referral_code TEXT, role TEXT DEFAULT 'user', license_tier TEXT DEFAULT 'DISCOVERY', signup_ip TEXT, two_factor_secret TEXT, subscription_end TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         c.execute('''CREATE TABLE IF NOT EXISTS equipment (equipment_id TEXT PRIMARY KEY, equipment_name TEXT, profile_base TEXT, power_kw REAL, is_calibrated INTEGER DEFAULT 0, last_calibration TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         c.execute('''CREATE TABLE IF NOT EXISTS audits (audit_uuid TEXT PRIMARY KEY, timestamp TIMESTAMP, created_by TEXT, equipment_id TEXT, materiel_type TEXT, materiel_name TEXT, scenario_code TEXT, index_start REAL, index_end REAL, power_kw REAL, fuel_declared_l REAL, estimated_min REAL, estimated_typ REAL, estimated_max REAL, uncertainty_pct REAL, deviation_pct REAL, z_score REAL, verdict TEXT, confidence_pct INTEGER, validated_by_operator INTEGER)''')
         c.execute('''CREATE TABLE IF NOT EXISTS equipment_load_overrides (equipment_id TEXT, scenario_code TEXT, load_min REAL, load_typ REAL, load_max REAL, learned_from_n_samples INTEGER, confidence_score REAL, last_updated TIMESTAMP, is_active INTEGER DEFAULT 1, PRIMARY KEY (equipment_id, scenario_code))''')
         c.execute('''CREATE TABLE IF NOT EXISTS transactions (tx_ref TEXT PRIMARY KEY, username TEXT, amount REAL, status TEXT, payment_method TEXT, mobile_money_id TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         
-        # --- LA TABLE QUI MANQUAIT ---
+        # C'EST ICI LA CLÉ DU PROBLÈME : LA TABLE CONFIG
         c.execute('''CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)''')
         c.execute("INSERT OR IGNORE INTO app_config (key, value) VALUES ('AGING_FACTOR', '1.05')")
 
-        # Migrations
         cols = [("users", "email", "TEXT"), ("users", "phone", "TEXT"), ("users", "company_name", "TEXT"), ("users", "referral_code", "TEXT"), ("users", "license_tier", "TEXT DEFAULT 'DISCOVERY'"), ("users", "subscription_end", "TIMESTAMP"), ("audits", "created_by", "TEXT"), ("transactions", "mobile_money_id", "TEXT")]
         for t, col, typ in cols:
             try: c.execute(f"ALTER TABLE {t} ADD COLUMN {col} {typ}")
             except: pass
-            
-        # Seed Admin
+        
         c.execute("SELECT count(*) FROM users")
         if c.fetchone()[0] == 0:
             pw_hash = bcrypt.hashpw("admin".encode('utf-8'), bcrypt.gensalt())
@@ -63,7 +59,7 @@ class ThreadSafeDatabase:
             conn.commit()
         conn.close()
 
-    # --- LES FONCTIONS QUI MANQUAIENT (CRASH FIX) ---
+    # --- LA FONCTION QUI MANQUAIT ---
     def get_config_value(self, key, default="1.05"):
         try:
             res = self.execute_read("SELECT value FROM app_config WHERE key = ?", (key,))
@@ -73,7 +69,6 @@ class ThreadSafeDatabase:
     def set_config_value(self, key, value):
         self.execute_write("INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)", (key, str(value)))
 
-    # --- MÉTIER ---
     def create_user_extended(self, username, password, email, phone, company, referral, role='user', tier='DISCOVERY', ip='127.0.0.1'):
         try:
             salt = bcrypt.gensalt(); hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
