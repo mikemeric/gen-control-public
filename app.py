@@ -1,5 +1,5 @@
 # ==============================================================================
-# GEN-CONTROL V1.1.7 - PATCH B2B (OFFRE CORPORATE & COMPARATIF)
+# GEN-CONTROL V1.1.8 - PATCH FINAL (TARIFS 2025 & CORPORATE)
 # ==============================================================================
 import streamlit as st
 import os
@@ -22,7 +22,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS ---
+# --- CSS (Style Tableau Comparatif & Design) ---
 st.markdown("""
 <style>
     .main-header { 
@@ -51,13 +51,23 @@ st.markdown("""
         padding: 10px; border: 1px solid #ddd; border-radius: 5px;
         height: 150px; overflow-y: scroll; margin-bottom: 10px;
     }
-    /* Style pour le tableau comparatif */
+    /* Tableau Comparatif B2B */
     .compare-table {
-        width: 100%; border-collapse: collapse; font-size: 0.9em;
+        width: 100%; border-collapse: collapse; font-size: 0.9em; margin-top: 20px;
     }
-    .compare-table th { background-color: #003366; color: white; padding: 10px; text-align: center; }
-    .compare-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    .compare-feature { text-align: left !important; font-weight: bold; background-color: #f0f2f6; }
+    .compare-table th { 
+        background-color: #003366; color: white; padding: 12px; text-align: center; 
+        border: 1px solid #ddd;
+    }
+    .compare-table td { 
+        border: 1px solid #ddd; padding: 10px; text-align: center; color: #333;
+    }
+    .compare-feature { 
+        text-align: left !important; font-weight: bold; background-color: #f0f2f6; 
+        width: 30%;
+    }
+    .check { color: green; font-weight: bold; }
+    .cross { color: red; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -81,15 +91,16 @@ def render_sidebar():
 
     with st.sidebar:
         st.title("GEN-CONTROL")
-        st.caption("V1.1.7 (B2B)")
+        st.caption("V1.1.8 (Final)")
         
         tier = st.session_state.get('license_tier', 'DISCOVERY')
         user = st.session_state.get('user', 'Utilisateur')
         st.info(f"👤 {user}\n🏷️ Licence : {tier}")
         
         opts = ["📱 Audit Terrain", "🎯 Calibration"]
-        # On affiche toujours l'option d'upgrade si pas au max
-        if tier != 'CORPORATE': opts.append("💎 Upgrade Licence")
+        # On affiche toujours l'option d'upgrade
+        opts.append("💎 Offres & Licences")
+        
         if tier in ['PRO', 'CORPORATE']: opts.append("🧠 Intelligence")
         if st.session_state.get('role') == 'admin': opts.append("🔐 Admin")
         
@@ -107,8 +118,8 @@ def render_sidebar():
         st.warning("⚠️ **AVIS JURIDIQUE**")
         st.markdown(
             "<div style='font-size:0.7em; text-align:justify;'>"
-            "Outil d'aide à la décision technique. "
-            "Résultats donnés à titre indicatif."
+            "Outil d'aide à la décision technique (ISO 15550). "
+            "Résultats indicatifs."
             "</div>", 
             unsafe_allow_html=True
         )
@@ -146,7 +157,7 @@ def render_auth():
                         st.error(msg)
 
         with tab_signup:
-            st.info("🎁 3 Audits Offerts")
+            st.info("🎁 3 Audits Offerts (Offre Découverte)")
             with st.form("signup_form"):
                 c1, c2 = st.columns(2)
                 new_user = c1.text_input("Identifiant")
@@ -161,156 +172,165 @@ def render_auth():
                 st.markdown("**Conditions Générales d'Utilisation (CGU)**")
                 st.markdown("""
                 <div class="cgu-box">
-                1. <b>Objet :</b> L'application GEN-CONTROL fournit des estimations de consommation carburant.<br>
-                2. <b>Responsabilité :</b> Les résultats sont basés sur des modèles théoriques (ISO 15550). 
-                L'éditeur décline toute responsabilité en cas de litige commercial.<br>
-                3. <b>Données :</b> Vos données sont sécurisées et ne sont pas revendues.<br>
-                4. <b>Licence :</b> L'utilisation PRO nécessite un abonnement actif.<br>
-                5. <b>Acceptation :</b> L'utilisation implique l'acceptation pleine de ces conditions.
+                1. <b>Service :</b> GEN-CONTROL offre une analyse théorique de consommation.<br>
+                2. <b>Limites :</b> Les résultats dépendent de la précision des données saisies.<br>
+                3. <b>Données :</b> Conformité RGPD. Aucune revente de données.<br>
+                4. <b>Licences :</b> L'offre Corporate inclut un déploiement spécifique.<br>
+                5. <b>Litiges :</b> L'éditeur ne peut être tenu responsable des écarts constatés sur le terrain.
                 </div>
                 """, unsafe_allow_html=True)
                 
-                cgu_accepted = st.checkbox("Je certifie avoir lu et j'accepte les CGU", value=False)
+                cgu_accepted = st.checkbox("J'accepte les CGU", value=False)
                 
                 if st.form_submit_button("Créer mon compte"):
                     sec = st.session_state.security
                     ip = sec.get_remote_ip()
                     
                     if not cgu_accepted:
-                        st.error("🛑 Vous devez accepter les CGU pour continuer.")
+                        st.error("🛑 Veuillez accepter les CGU.")
                     elif sec.check_signup_abuse(ip): 
-                        st.error("Trop de comptes créés depuis cette adresse.")
+                        st.error("Trop de comptes créés.")
                     elif not new_user or not new_pass or not email: 
-                        st.warning("Champs requis manquants.")
+                        st.warning("Remplissez tous les champs.")
                     else:
                         ok, msg = st.session_state.db.create_user_extended(
                             new_user, new_pass, email, phone, company, referral, ip=ip
                         )
                         if ok: 
-                            st.success("Compte créé ! Connectez-vous."); time.sleep(1); st.rerun()
+                            st.success("Bienvenue ! Connectez-vous."); time.sleep(1); st.rerun()
                         else: 
                             st.error(f"Erreur: {msg}")
 
-# --- PAGE PAIEMENT B2B (REFONTE) ---
+# --- PAGE PAIEMENT & LICENCES (STRATÉGIE B2B) ---
 def render_payment_page_local():
-    st.markdown('<div class="main-header">💎 Upgrade Licence</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">💎 Grille Tarifaire & Licences 2025</div>', unsafe_allow_html=True)
     
-    # ONGLETS STRATÉGIQUES
-    tab_pro, tab_corp, tab_comp = st.tabs(["💎 OFFRE PRO", "🏢 OFFRE CORPORATE", "⚖️ COMPARATIF"])
+    # Onglets de vente
+    tab_pro, tab_corp, tab_comp = st.tabs(["💎 OFFRE PRO", "🏢 OFFRE CORPORATE (VIP)", "⚖️ COMPARATIF"])
     
-    # --- TAB 1 : OFFRE PRO ---
+    # --- 1. OFFRE PRO ---
     with tab_pro:
         c1, c2 = st.columns([1, 1])
         with c1:
-            st.info("### 🚀 Pour Indépendants & PME")
-            st.write("L'outil essentiel pour ne plus perdre une goutte.")
+            st.info("### 🚀 Pour Freelances & PME")
+            st.write("Professionnalisez vos audits et gagnez la confiance de vos clients.")
             st.markdown("""
-            * ✅ Audits Illimités
-            * ✅ Rapports PDF Certifiés
-            * ✅ Support Prioritaire
-            * ✅ Mises à jour incluses
+            * **Audits Illimités** : Fini la limite des 3 essais.
+            * **Rapports PDF Certifiés** : Sans filigrane "DÉMO". Propre et net.
+            * **Cloud Sécurisé** : Vos données sont protégées.
+            * **Support Prioritaire** : Ligne directe WhatsApp.
             """)
-            st.metric("Tarif Annuel", "50 000 FCFA", "Rentable dès le 1er audit")
+            st.metric("Abonnement Mensuel", "15 000 FCFA")
         
         with c2:
-            st.write("### 💳 Paiement PRO")
+            st.write("### 💳 Activer le Pack PRO")
             with st.form("pay_pro"):
                 phone_pay = st.text_input("Numéro Mobile Money", placeholder="6XX XXX XXX")
                 tx_ref = st.text_input("ID Transaction (SMS)", placeholder="Ex: PP2305...")
                 sponsor_code = st.text_input("Code Parrain", placeholder="Optionnel")
                 
-                if st.form_submit_button("ACTIVER LICENCE PRO (50 000 F)"):
+                if st.form_submit_button("S'ABONNER (15 000 F)"):
                     if len(phone_pay) > 8 and len(tx_ref) > 4:
                         notes = f"Offre: PRO | Parrain: {sponsor_code}" if sponsor_code else "Offre: PRO"
                         st.session_state.db.create_transaction(
-                            st.session_state['user'], 50000, "OM/MOMO", tx_ref, phone_pay
+                            st.session_state['user'], 15000, "OM/MOMO", tx_ref, phone_pay
                         )
-                        st.success("Demande envoyée ! Activation sous 2h.")
-                        st.info(f"Note : {notes}")
-                    else: st.error("Infos invalides.")
+                        st.success("Activation en cours (Max 2h).")
+                    else: st.error("Infos incomplètes.")
 
-    # --- TAB 2 : OFFRE CORPORATE (NOUVEAU) ---
+    # --- 2. OFFRE CORPORATE (PREMIUM B2B) ---
     with tab_corp:
-        c1, c2 = st.columns([1, 1])
+        st.error("### 🏢 L'arme absolue pour les Grandes Flottes & Industries")
+        
+        c1, c2 = st.columns([3, 2])
         with c1:
-            st.error("### 🧠 Pour Grandes Flottes & Industries")
-            st.write("La puissance de l'IA pour une gestion de flotte sans faille.")
             st.markdown("""
-            * 🔥 **Tout du Pack PRO inclus**
-            * 🧠 **Intelligence Artificielle (IA)** : Le logiciel "apprend" le comportement de VOS engins.
-            * 📈 **Détection d'Anomalie Avancée** : Analyse statistique croisée.
-            * 🛡️ **Mode Audit Juridique** : Rapports renforcés pour litiges.
-            * 👑 **Support VIP** : Ligne directe avec les ingénieurs.
+            **Pourquoi passer Corporate ?**
+            C'est simple : Une seule anomalie carburant détectée rentabilise votre abonnement annuel.
+            
+            * 👑 **Multi-Utilisateurs** : Un compte Admin + Des comptes employés illimités.
+            * 🧠 **Intelligence Artificielle (IA)** : Le logiciel APPREND de vos engins (Active Learning).
+            * 🎨 **Marque Blanche** : Vos rapports PDF avec VOTRE LOGO d'entreprise.
+            * 💾 **Souveraineté des Données** : Export local des bases de données & Déploiement sur site possible.
+            * 📞 **Support VIP** : Ligne directe Ingénieur dédié.
             """)
-            st.metric("Tarif Annuel", "100 000 FCFA", "Rentabilisé au 1er vol évité")
         
         with c2:
-            st.write("### 💳 Paiement CORPORATE")
-            st.caption("Investissement B2B déductible de vos charges.")
+            st.metric("Pack Mensuel (Facturation Annuelle)", "100 000 FCFA", "Rentabilité Immédiate")
+            st.caption("Déploiement sur site ou Cloud Privé inclus.")
+            
             with st.form("pay_corp"):
-                phone_pay = st.text_input("Numéro Mobile Money", placeholder="6XX XXX XXX", key="pay_corp_phone")
-                tx_ref = st.text_input("ID Transaction (SMS)", placeholder="Ex: CI8900...", key="pay_corp_ref")
-                sponsor_code = st.text_input("Code Parrain", placeholder="Optionnel", key="pay_corp_parrain")
+                phone_pay = st.text_input("Numéro Paiement", placeholder="6XX XXX XXX", key="cp_phone")
+                tx_ref = st.text_input("ID Transaction / Bon de Commande", key="cp_ref")
+                sponsor_code = st.text_input("Code Parrain", placeholder="Requis pour bonus", key="cp_par")
                 
-                if st.form_submit_button("ACTIVER LICENCE CORPORATE (100 000 F)"):
-                    if len(phone_pay) > 8 and len(tx_ref) > 4:
-                        notes = f"Offre: CORPORATE | Parrain: {sponsor_code}" if sponsor_code else "Offre: CORPORATE"
-                        # Montant fixé à 100 000
+                if st.form_submit_button("DEMANDER L'ACTIVATION CORPORATE"):
+                    if len(phone_pay) > 8:
+                        notes = f"Offre: CORPORATE | Parrain: {sponsor_code}"
                         st.session_state.db.create_transaction(
-                            st.session_state['user'], 100000, "OM/MOMO", tx_ref, phone_pay
+                            st.session_state['user'], 100000, "VIREMENT/OM", tx_ref, phone_pay
                         )
-                        st.success("Demande VIP reçue ! Activation prioritaire.")
-                        st.info(f"Note : {notes}")
-                    else: st.error("Infos invalides.")
+                        st.success("Votre demande est traitée en priorité absolue.")
+                        st.info("Un ingénieur va vous contacter pour le déploiement.")
 
-    # --- TAB 3 : COMPARATIF ---
+    # --- 3. COMPARATIF (TABLEAU DU PDF) ---
     with tab_comp:
-        st.write("### ⚖️ Choisissez votre arme anti-fraude")
+        st.write("### ⚖️ Tableau Comparatif des Licences 2025")
         st.markdown("""
         <table class="compare-table">
             <tr>
-                <th style="background-color:#eee; color:#333;">Fonctionnalités</th>
-                <th style="background-color:#ccc; color:#555;">DISCOVERY (Gratuit)</th>
-                <th style="background-color:#28a745;">PRO (50k/an)</th>
-                <th style="background-color:#dc3545;">CORPORATE (100k/an)</th>
+                <th style="width:30%">FONCTIONNALITÉS</th>
+                <th style="background-color:#eee; color:#555;">DISCOVERY<br>(Gratuit)</th>
+                <th style="background-color:#28a745;">PRO<br>(15 000 F/mois)</th>
+                <th style="background-color:#003366;">CORPORATE<br>(100 000 F/mois)</th>
             </tr>
             <tr>
-                <td class="compare-feature">Nombre d'Audits</td>
-                <td>3 max</td>
-                <td>Illimité</td>
-                <td>Illimité</td>
+                <td class="compare-feature">Cible Idéale</td>
+                <td>Curieux / Test</td>
+                <td>Freelance / PME</td>
+                <td>Industries / Flottes</td>
             </tr>
             <tr>
-                <td class="compare-feature">Rapports PDF</td>
-                <td>❌</td>
-                <td>✅</td>
-                <td>✅ (Marque Blanche)</td>
+                <td class="compare-feature">Quota d'Audits</td>
+                <td>3 Max</td>
+                <td class="check">✓ ILLIMITÉ</td>
+                <td class="check">✓ ILLIMITÉ</td>
             </tr>
             <tr>
-                <td class="compare-feature">Calibration Engins</td>
-                <td>✅</td>
-                <td>✅</td>
-                <td>✅</td>
+                <td class="compare-feature">Comptes Utilisateurs</td>
+                <td>1</td>
+                <td>1</td>
+                <td class="check">MULTI-COMPTES</td>
+            </tr>
+            <tr>
+                <td class="compare-feature">Rapport PDF</td>
+                <td>Filigrane "DÉMO"</td>
+                <td class="check">PROPRE (Certifié)</td>
+                <td class="check">LOGO CLIENT + CERTIFIÉ</td>
             </tr>
              <tr>
-                <td class="compare-feature">IA Auto-Apprenante</td>
-                <td>❌</td>
-                <td>❌</td>
-                <td>✅ (Cerveau Moteur)</td>
+                <td class="compare-feature">Intelligence Artificielle</td>
+                <td class="cross">✘</td>
+                <td class="cross">✘ (Lecture seule)</td>
+                <td class="check">✓ ACTIVE (Apprentissage)</td>
+            </tr>
+             <tr>
+                <td class="compare-feature">Base de Données</td>
+                <td>Cloud Partagé</td>
+                <td>Cloud Sécurisé</td>
+                <td class="check">EXPORT LOCAL / SUR SITE</td>
             </tr>
             <tr>
                 <td class="compare-feature">Support Technique</td>
-                <td>Standard</td>
+                <td>Email (48h)</td>
                 <td>Prioritaire</td>
-                <td>VIP (Ligne Directe)</td>
-            </tr>
-             <tr>
-                <td class="compare-feature">Cible Idéale</td>
-                <td>Curieux / Test</td>
-                <td>Indépendant / PME</td>
-                <td>Grande Flotte / BTP</td>
+                <td class="check">VIP (Téléphone Direct)</td>
             </tr>
         </table>
+        <br>
+        <div style="text-align:center; font-size:0.8em; color:#777;">
+            Tarifs HT. L'offre Corporate nécessite un engagement annuel.
+        </div>
         """, unsafe_allow_html=True)
 
 # --- PAGES FONCTIONNELLES ---
@@ -572,8 +592,7 @@ def main():
     elif menu == "🎯 Calibration": render_calibration_page()
     elif menu == "🧠 Intelligence": render_learning_page()
     elif menu == "🔐 Admin": render_admin_page()
-    elif menu == "💎 Devenir PRO": render_payment_page_local()
-    elif menu == "💎 Upgrade Licence": render_payment_page_local()
+    elif menu == "💎 Offres & Licences": render_payment_page_local()
 
 if __name__ == "__main__":
     main()
