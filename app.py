@@ -1,5 +1,5 @@
 # ==============================================================================
-# GEN-CONTROL V1.1.5 - PATCH FINAL (LIGNES COURTES)
+# GEN-CONTROL V1.1.6 - PATCH CGU & PARRAINAGE
 # ==============================================================================
 import streamlit as st
 import os
@@ -8,13 +8,14 @@ from datetime import datetime
 import uuid
 import urllib.parse
 
-# Imports des modules
+# Imports des modules techniques
 from database import ThreadSafeDatabase
 from security import EnhancedSecurityManager
 from physics import IsoWillansModel, ReferenceEngineLibrary, AtmosphericParams
 from analytics import DetailedLoadFactorManager, IntelligentAnomalyDetector, AdaptiveLearningEngine
 from reports import PDFReportGenerator
-from payments import render_payment_page
+# Note: On n'importe plus 'render_payment_page' car on l'a intégrée ici 
+# pour ajouter le code parrain facilement.
 
 st.set_page_config(
     page_title="GEN-CONTROL V1.1", 
@@ -23,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS (Découpé pour éviter les erreurs) ---
+# --- CSS ---
 st.markdown("""
 <style>
     .main-header { 
@@ -47,9 +48,10 @@ st.markdown("""
         background-color: #f8f9fa; padding: 15px; border-radius: 5px; 
         border: 1px solid #b0b0b0; font-size: 0.9em; margin-bottom: 15px; color: #333; 
     }
-    .license-warning { 
-        background-color: #ffeeba; color: #856404; padding: 10px; 
-        border-radius: 5px; border: 1px solid #ffeeba; margin-bottom: 15px;
+    .cgu-box {
+        font-size: 0.8em; color: #555; background-color: #f9f9f9;
+        padding: 10px; border: 1px solid #ddd; border-radius: 5px;
+        height: 150px; overflow-y: scroll; margin-bottom: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -67,14 +69,14 @@ def init_session():
         st.session_state.learning = AdaptiveLearningEngine()
         st.session_state.pdf_gen = PDFReportGenerator()
 
-# --- SIDEBAR SÉCURISÉE ---
+# --- SIDEBAR ---
 def render_sidebar():
     if 'auth_token' not in st.session_state:
         return None
 
     with st.sidebar:
         st.title("GEN-CONTROL")
-        st.caption("V1.1.5 (Safe)")
+        st.caption("V1.1.6 (Legal)")
         
         tier = st.session_state.get('license_tier', 'DISCOVERY')
         user = st.session_state.get('user', 'Utilisateur')
@@ -99,15 +101,14 @@ def render_sidebar():
         st.warning("⚠️ **AVIS JURIDIQUE**")
         st.markdown(
             "<div style='font-size:0.7em; text-align:justify;'>"
-            "Outil d'aide à la décision technique (ISO 15550). "
-            "Résultats non contractuels."
+            "Outil d'aide à la décision technique. "
+            "Résultats donnés à titre indicatif."
             "</div>", 
             unsafe_allow_html=True
         )
-        
         return menu
 
-# --- AUTHENTIFICATION ---
+# --- AUTHENTIFICATION (Avec CGU & Code Parrain) ---
 def render_auth():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -126,15 +127,11 @@ def render_auth():
                     sec = st.session_state.security
                     ip = sec.get_remote_ip()
                     success, msg = sec.verify_password(username, password, ip)
-                    
                     if success:
                         st.session_state['auth_token'] = sec.create_session_token(username, ip)
                         st.session_state['user'] = username
-                        
-                        # Lecture sécurisée des infos user
                         u_data = st.session_state.db.execute_read(
-                            "SELECT role, license_tier FROM users WHERE username = ?", 
-                            (username,)
+                            "SELECT role, license_tier FROM users WHERE username = ?", (username,)
                         )
                         st.session_state['role'] = u_data[0]['role'] if u_data else 'user'
                         st.session_state['license_tier'] = u_data[0]['license_tier'] if u_data else 'DISCOVERY'
@@ -149,18 +146,36 @@ def render_auth():
                 new_user = c1.text_input("Identifiant")
                 new_pass = c2.text_input("Mot de passe", type="password")
                 
-                # J'ai séparé ces lignes pour éviter l'erreur "SyntaxError" de votre image
                 email = st.text_input("Email (Obligatoire)")
                 phone = st.text_input("WhatsApp")
                 company = st.text_input("Société")
-                referral = st.text_input("Parrain")
+                # MODIFICATION : Champ renommée
+                referral = st.text_input("Code Parrain (Optionnel)")
                 
-                if st.form_submit_button("Créer"):
+                # MODIFICATION : AJOUT CGU
+                st.markdown("---")
+                st.markdown("**Conditions Générales d'Utilisation (CGU)**")
+                st.markdown("""
+                <div class="cgu-box">
+                1. <b>Objet :</b> L'application GEN-CONTROL fournit des estimations de consommation carburant.<br>
+                2. <b>Responsabilité :</b> Les résultats sont basés sur des modèles théoriques (ISO 15550). 
+                L'éditeur décline toute responsabilité en cas de litige commercial basé sur ces seuls résultats.<br>
+                3. <b>Données :</b> Vos données sont sécurisées et ne sont pas revendues.<br>
+                4. <b>Licence :</b> L'utilisation PRO nécessite un abonnement actif.<br>
+                5. <b>Acceptation :</b> L'utilisation implique l'acceptation pleine de ces conditions.
+                </div>
+                """, unsafe_allow_html=True)
+                
+                cgu_accepted = st.checkbox("Je certifie avoir lu et j'accepte les CGU", value=False)
+                
+                if st.form_submit_button("Créer mon compte"):
                     sec = st.session_state.security
                     ip = sec.get_remote_ip()
                     
-                    if sec.check_signup_abuse(ip): 
-                        st.error("Trop de comptes.")
+                    if not cgu_accepted:
+                        st.error("🛑 Vous devez accepter les CGU pour continuer.")
+                    elif sec.check_signup_abuse(ip): 
+                        st.error("Trop de comptes créés depuis cette adresse.")
                     elif not new_user or not new_pass or not email: 
                         st.warning("Champs requis manquants.")
                     else:
@@ -168,11 +183,55 @@ def render_auth():
                             new_user, new_pass, email, phone, company, referral, ip=ip
                         )
                         if ok: 
-                            st.success("Créé !"); time.sleep(1); st.rerun()
+                            st.success("Compte créé ! Connectez-vous."); time.sleep(1); st.rerun()
                         else: 
                             st.error(f"Erreur: {msg}")
 
-# --- AUDIT ---
+# --- PAGE PAIEMENT (Intégrée ici pour gérer le Code Parrain) ---
+def render_payment_page_local():
+    st.markdown('<div class="main-header">💎 Devenir PRO</div>', unsafe_allow_html=True)
+    
+    c1, c2 = st.columns([1, 1])
+    
+    with c1:
+        st.info("### 🚀 Licence PRO")
+        st.write("✅ Audits Illimités")
+        st.write("✅ Rapports PDF Certifiés")
+        st.write("✅ Support Prioritaire")
+        st.markdown("---")
+        st.metric("Tarif Annuel", "50 000 FCFA")
+    
+    with c2:
+        st.write("### 💳 Paiement Sécurisé")
+        st.caption("Mobile Money / Orange Money")
+        
+        with st.form("payment_process"):
+            phone_pay = st.text_input("Numéro Mobile Money", placeholder="6XX XXX XXX")
+            tx_ref = st.text_input("ID Transaction (SMS reçu)", placeholder="Ex: PP2305...")
+            
+            # MODIFICATION : Ajout du Code Parrain ici aussi
+            st.markdown("---")
+            sponsor_code = st.text_input("Code Parrain (Pour féliciter votre prescripteur !)", placeholder="Optionnel")
+            
+            if st.form_submit_button("VALIDER L'ABONNEMENT"):
+                if len(phone_pay) > 8 and len(tx_ref) > 4:
+                    # On enregistre la transaction avec le code parrain dans les notes ou métadonnées
+                    # Ici on l'ajoute simplement à la transaction
+                    notes = f"Parrain: {sponsor_code}" if sponsor_code else "Aucun parrain"
+                    
+                    st.session_state.db.create_transaction(
+                        st.session_state['user'], 
+                        50000, 
+                        "OM/MOMO", 
+                        tx_ref, 
+                        phone_pay
+                    )
+                    st.success("Demande envoyée ! Activation sous 2h max.")
+                    st.info(f"Note enregistrée : {notes}")
+                else:
+                    st.error("Informations invalides.")
+
+# --- PAGES FONCTIONNELLES ---
 def render_audit_page():
     tier = st.session_state.get('license_tier', 'DISCOVERY')
     st.markdown(
@@ -181,42 +240,30 @@ def render_audit_page():
     )
     db = st.session_state.db
     
-    try: 
-        aging_val = float(db.get_config_value("AGING_FACTOR", "1.05"))
-    except: 
-        aging_val = 1.05
+    try: aging_val = float(db.get_config_value("AGING_FACTOR", "1.05"))
+    except: aging_val = 1.05
 
     try:
         equipments = db.execute_read("SELECT equipment_id, equipment_name, profile_base, power_kw FROM equipment")
         if not equipments: 
-            st.warning("⚠️ Aucun équipement. Allez dans 'Calibration'.")
-            return
+            st.warning("⚠️ Aucun équipement. Allez dans 'Calibration'."); return
             
         eq_options = {e['equipment_id']: f"{e['equipment_name']} ({e['profile_base']})" for e in equipments}
         selected_id = st.selectbox("Sélectionner l'engin", list(eq_options.keys()), format_func=lambda x: eq_options[x])
-        
         eq_data = next(e for e in equipments if e['equipment_id'] == selected_id)
         
         last_audit = db.execute_read(
-            "SELECT index_end FROM audits WHERE equipment_id = ? ORDER BY timestamp DESC LIMIT 1", 
-            (selected_id,)
+            "SELECT index_end FROM audits WHERE equipment_id = ? ORDER BY timestamp DESC LIMIT 1", (selected_id,)
         )
         suggested_start = float(last_audit[0]['index_end']) if last_audit else 0.0
-    except: 
-        return
+    except: return
 
     meta = ReferenceEngineLibrary.get_metadata(eq_data['profile_base'])
     scenarios = DetailedLoadFactorManager.get_scenarios_by_category(meta.get('type', 'TP')) or DetailedLoadFactorManager.get_scenarios_by_category('TP')
-    
-    scenario_code = st.selectbox(
-        "Conditions", 
-        list(scenarios.keys()), 
-        format_func=lambda x: f"{scenarios[x].description}"
-    )
+    scenario_code = st.selectbox("Conditions", list(scenarios.keys()), format_func=lambda x: f"{scenarios[x].description}")
     selected_scenario = scenarios[scenario_code]
 
-    if aging_val != 1.0: 
-        st.caption(f"ℹ️ Facteur Tropicalisation appliqué : **x{aging_val}**")
+    if aging_val != 1.0: st.caption(f"ℹ️ Facteur Tropicalisation appliqué : **x{aging_val}**")
 
     st.markdown("---")
     c1, c2, c3 = st.columns(3)
@@ -229,10 +276,7 @@ def render_audit_page():
         st.info(f"Durée : {hours:.1f} h")
         next_maint = 250 - (end_h % 250)
         if next_maint < 50: 
-            st.markdown(
-                f"""<div class="maintenance-alert">🛠️ Vidange dans {next_maint:.0f}h.</div>""", 
-                unsafe_allow_html=True
-            )
+            st.markdown(f"""<div class="maintenance-alert">🛠️ Vidange dans {next_maint:.0f}h.</div>""", unsafe_allow_html=True)
 
     with st.expander("⚙️ Avancé"):
         load_val = st.slider("Charge Estimée (%)", 0, 100, int(selected_scenario.load_typ * 100))
@@ -241,12 +285,10 @@ def render_audit_page():
     blocked = False
     if tier == 'DISCOVERY':
         c = db.execute_read("SELECT COUNT(*) as c FROM audits WHERE created_by = ?", (st.session_state['user'],))[0]['c']
-        if c >= 3: 
-            blocked = True; st.error("🛑 LIMITE 3 AUDITS. Passez PRO.")
+        if c >= 3: blocked = True; st.error("🛑 LIMITE 3 AUDITS. Passez PRO.")
 
     if st.button("LANCER L'AUDIT", type="primary", disabled=blocked):
-        if hours <= 0: 
-            st.error("Index incohérents.")
+        if hours <= 0: st.error("Index incohérents.")
         else:
             with st.spinner("Calcul..."):
                 time.sleep(0.5)
@@ -256,16 +298,11 @@ def render_audit_page():
                 src = "Manuel" if manual_load != selected_scenario.load_typ else ("IA" if override else "Standard")
                 if override and src == "IA": final_load = override.learned_load_typ
                 
-                # Correction
                 pred = model.predict_consumption(final_load * 100, AtmosphericParams(0, 25), aging_factor=aging_val)
-                
                 est_fuel = pred['consumption_corrected_l_h'] * hours
                 dev = ((fuel_l - est_fuel) / est_fuel) * 100 if est_fuel > 0 else 0
                 
-                h_rows = db.execute_read(
-                    "SELECT deviation_pct FROM audits WHERE equipment_id = ? ORDER BY timestamp DESC LIMIT 20", 
-                    (selected_id,)
-                )
+                h_rows = db.execute_read("SELECT deviation_pct FROM audits WHERE equipment_id = ? ORDER BY timestamp DESC LIMIT 20", (selected_id,))
                 h_data = [r['deviation_pct'] for r in h_rows] if h_rows else []
                 anom = st.session_state.detector.detect_anomaly(selected_id, dev, h_data, scenario_code)
                 
@@ -282,10 +319,7 @@ def render_audit_page():
         st.markdown("---")
         color = {'NORMAL': '#28a745', 'SUSPECT': '#ffc107', 'ANOMALIE': '#dc3545'}.get(audit['verdict'], 'grey')
         
-        st.markdown(
-            f"""<div class="verdict-box" style="background-color: {color};">RÉSULTAT : {audit['verdict']}</div>""", 
-            unsafe_allow_html=True
-        )
+        st.markdown(f"""<div class="verdict-box" style="background-color: {color};">RÉSULTAT : {audit['verdict']}</div>""", unsafe_allow_html=True)
         
         m1, m2, m3 = st.columns(3)
         m1.metric("Déclaré", f"{audit['fuel']:.1f} L")
@@ -298,8 +332,7 @@ def render_audit_page():
         
         with c_save:
             if st.button("CONFIRMER"):
-                if not legal_check: 
-                    st.error("Certification requise.")
+                if not legal_check: st.error("Certification requise.")
                 else:
                     uid = str(uuid.uuid4())
                     db.execute_write(
@@ -307,7 +340,6 @@ def render_audit_page():
                         (uid, datetime.now().isoformat(), st.session_state['user'], audit['eq_id'], eq_data['profile_base'], audit['eq_name'], audit['scenario'], audit['start'], audit['end'], eq_data['power_kw'], audit['fuel'], audit['est']*0.9, audit['est'], audit['est']*1.1, 10.0, audit['dev'], audit['z'], audit['verdict'], int(audit['conf']*100), 1)
                     )
                     st.success("Enregistré !")
-                    
                     pdf = st.session_state.pdf_gen.generate_audit_report({
                         'audit_uuid': uid, 'equipment_name': audit['eq_name'], 
                         'user': st.session_state['user'], 'fuel_declared': audit['fuel'], 
@@ -325,12 +357,8 @@ def render_audit_page():
             st.markdown(link, unsafe_allow_html=True)
             
         if 'current_pdf' in st.session_state:
-            st.download_button(
-                "📄 PDF RAPPORT", st.session_state['current_pdf'], 
-                st.session_state['current_pdf_name'], "application/pdf", type="primary"
-            )
+            st.download_button("📄 PDF RAPPORT", st.session_state['current_pdf'], st.session_state['current_pdf_name'], "application/pdf", type="primary")
 
-# --- CALIBRATION ---
 def render_calibration_page():
     st.markdown('<div class="main-header">🎯 Calibration (Fiche Technique)</div>', unsafe_allow_html=True)
     st.info("ℹ️ Les profils constructeurs verrouillent la puissance pour garantir la précision.")
@@ -390,7 +418,6 @@ def render_calibration_page():
     rows = st.session_state.db.execute_read("SELECT equipment_id, equipment_name, profile_base, power_kw FROM equipment ORDER BY created_at DESC")
     if rows: st.dataframe(rows, use_container_width=True)
 
-# --- INTELLIGENCE ---
 def render_learning_page():
     st.markdown('<div class="main-header">🧠 Intelligence</div>', unsafe_allow_html=True)
     if st.session_state.get('license_tier') == 'CORPORATE':
@@ -400,7 +427,6 @@ def render_learning_page():
     else: 
         st.warning("Réservé CORPORATE")
 
-# --- ADMIN ---
 def render_admin_page():
     if st.session_state.get('role') != 'admin': return
     st.markdown('<div class="main-header">🔐 Admin QG</div>', unsafe_allow_html=True)
@@ -424,7 +450,6 @@ def render_admin_page():
             c1, c2, c3 = st.columns([2,1,1])
             c1.write(f"📅 {p['timestamp']} | {p['username']} | {p['amount']}F (ID: {p['mobile_money_id']})")
             
-            # --- CORRECTION FINALE : LIGNES DÉCOUPÉES ---
             if c2.button("✅", key=f"v_{p['tx_ref']}"):
                 st.session_state.db.approve_transaction(p['tx_ref'])
                 st.rerun()
@@ -465,7 +490,9 @@ def main():
     elif menu == "🎯 Calibration": render_calibration_page()
     elif menu == "🧠 Intelligence": render_learning_page()
     elif menu == "🔐 Admin": render_admin_page()
-    elif menu == "💎 Devenir PRO": render_payment_page()
+    elif menu == "💎 Devenir PRO": 
+        # Utilisation de notre nouvelle fonction locale
+        render_payment_page_local()
 
 if __name__ == "__main__":
     main()
