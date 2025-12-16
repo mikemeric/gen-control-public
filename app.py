@@ -1,5 +1,5 @@
 # ==============================================================================
-# GEN-CONTROL V1.1.6 - PATCH CGU & PARRAINAGE
+# GEN-CONTROL V1.1.7 - PATCH B2B (OFFRE CORPORATE & COMPARATIF)
 # ==============================================================================
 import streamlit as st
 import os
@@ -14,8 +14,6 @@ from security import EnhancedSecurityManager
 from physics import IsoWillansModel, ReferenceEngineLibrary, AtmosphericParams
 from analytics import DetailedLoadFactorManager, IntelligentAnomalyDetector, AdaptiveLearningEngine
 from reports import PDFReportGenerator
-# Note: On n'importe plus 'render_payment_page' car on l'a intégrée ici 
-# pour ajouter le code parrain facilement.
 
 st.set_page_config(
     page_title="GEN-CONTROL V1.1", 
@@ -53,6 +51,13 @@ st.markdown("""
         padding: 10px; border: 1px solid #ddd; border-radius: 5px;
         height: 150px; overflow-y: scroll; margin-bottom: 10px;
     }
+    /* Style pour le tableau comparatif */
+    .compare-table {
+        width: 100%; border-collapse: collapse; font-size: 0.9em;
+    }
+    .compare-table th { background-color: #003366; color: white; padding: 10px; text-align: center; }
+    .compare-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    .compare-feature { text-align: left !important; font-weight: bold; background-color: #f0f2f6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -76,14 +81,15 @@ def render_sidebar():
 
     with st.sidebar:
         st.title("GEN-CONTROL")
-        st.caption("V1.1.6 (Legal)")
+        st.caption("V1.1.7 (B2B)")
         
         tier = st.session_state.get('license_tier', 'DISCOVERY')
         user = st.session_state.get('user', 'Utilisateur')
         st.info(f"👤 {user}\n🏷️ Licence : {tier}")
         
         opts = ["📱 Audit Terrain", "🎯 Calibration"]
-        if tier == 'DISCOVERY': opts.append("💎 Devenir PRO")
+        # On affiche toujours l'option d'upgrade si pas au max
+        if tier != 'CORPORATE': opts.append("💎 Upgrade Licence")
         if tier in ['PRO', 'CORPORATE']: opts.append("🧠 Intelligence")
         if st.session_state.get('role') == 'admin': opts.append("🔐 Admin")
         
@@ -108,7 +114,7 @@ def render_sidebar():
         )
         return menu
 
-# --- AUTHENTIFICATION (Avec CGU & Code Parrain) ---
+# --- AUTHENTIFICATION ---
 def render_auth():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -149,17 +155,15 @@ def render_auth():
                 email = st.text_input("Email (Obligatoire)")
                 phone = st.text_input("WhatsApp")
                 company = st.text_input("Société")
-                # MODIFICATION : Champ renommée
                 referral = st.text_input("Code Parrain (Optionnel)")
                 
-                # MODIFICATION : AJOUT CGU
                 st.markdown("---")
                 st.markdown("**Conditions Générales d'Utilisation (CGU)**")
                 st.markdown("""
                 <div class="cgu-box">
                 1. <b>Objet :</b> L'application GEN-CONTROL fournit des estimations de consommation carburant.<br>
                 2. <b>Responsabilité :</b> Les résultats sont basés sur des modèles théoriques (ISO 15550). 
-                L'éditeur décline toute responsabilité en cas de litige commercial basé sur ces seuls résultats.<br>
+                L'éditeur décline toute responsabilité en cas de litige commercial.<br>
                 3. <b>Données :</b> Vos données sont sécurisées et ne sont pas revendues.<br>
                 4. <b>Licence :</b> L'utilisation PRO nécessite un abonnement actif.<br>
                 5. <b>Acceptation :</b> L'utilisation implique l'acceptation pleine de ces conditions.
@@ -187,49 +191,127 @@ def render_auth():
                         else: 
                             st.error(f"Erreur: {msg}")
 
-# --- PAGE PAIEMENT (Intégrée ici pour gérer le Code Parrain) ---
+# --- PAGE PAIEMENT B2B (REFONTE) ---
 def render_payment_page_local():
-    st.markdown('<div class="main-header">💎 Devenir PRO</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">💎 Upgrade Licence</div>', unsafe_allow_html=True)
     
-    c1, c2 = st.columns([1, 1])
+    # ONGLETS STRATÉGIQUES
+    tab_pro, tab_corp, tab_comp = st.tabs(["💎 OFFRE PRO", "🏢 OFFRE CORPORATE", "⚖️ COMPARATIF"])
     
-    with c1:
-        st.info("### 🚀 Licence PRO")
-        st.write("✅ Audits Illimités")
-        st.write("✅ Rapports PDF Certifiés")
-        st.write("✅ Support Prioritaire")
-        st.markdown("---")
-        st.metric("Tarif Annuel", "50 000 FCFA")
-    
-    with c2:
-        st.write("### 💳 Paiement Sécurisé")
-        st.caption("Mobile Money / Orange Money")
+    # --- TAB 1 : OFFRE PRO ---
+    with tab_pro:
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.info("### 🚀 Pour Indépendants & PME")
+            st.write("L'outil essentiel pour ne plus perdre une goutte.")
+            st.markdown("""
+            * ✅ Audits Illimités
+            * ✅ Rapports PDF Certifiés
+            * ✅ Support Prioritaire
+            * ✅ Mises à jour incluses
+            """)
+            st.metric("Tarif Annuel", "50 000 FCFA", "Rentable dès le 1er audit")
         
-        with st.form("payment_process"):
-            phone_pay = st.text_input("Numéro Mobile Money", placeholder="6XX XXX XXX")
-            tx_ref = st.text_input("ID Transaction (SMS reçu)", placeholder="Ex: PP2305...")
-            
-            # MODIFICATION : Ajout du Code Parrain ici aussi
-            st.markdown("---")
-            sponsor_code = st.text_input("Code Parrain (Pour féliciter votre prescripteur !)", placeholder="Optionnel")
-            
-            if st.form_submit_button("VALIDER L'ABONNEMENT"):
-                if len(phone_pay) > 8 and len(tx_ref) > 4:
-                    # On enregistre la transaction avec le code parrain dans les notes ou métadonnées
-                    # Ici on l'ajoute simplement à la transaction
-                    notes = f"Parrain: {sponsor_code}" if sponsor_code else "Aucun parrain"
-                    
-                    st.session_state.db.create_transaction(
-                        st.session_state['user'], 
-                        50000, 
-                        "OM/MOMO", 
-                        tx_ref, 
-                        phone_pay
-                    )
-                    st.success("Demande envoyée ! Activation sous 2h max.")
-                    st.info(f"Note enregistrée : {notes}")
-                else:
-                    st.error("Informations invalides.")
+        with c2:
+            st.write("### 💳 Paiement PRO")
+            with st.form("pay_pro"):
+                phone_pay = st.text_input("Numéro Mobile Money", placeholder="6XX XXX XXX")
+                tx_ref = st.text_input("ID Transaction (SMS)", placeholder="Ex: PP2305...")
+                sponsor_code = st.text_input("Code Parrain", placeholder="Optionnel")
+                
+                if st.form_submit_button("ACTIVER LICENCE PRO (50 000 F)"):
+                    if len(phone_pay) > 8 and len(tx_ref) > 4:
+                        notes = f"Offre: PRO | Parrain: {sponsor_code}" if sponsor_code else "Offre: PRO"
+                        st.session_state.db.create_transaction(
+                            st.session_state['user'], 50000, "OM/MOMO", tx_ref, phone_pay
+                        )
+                        st.success("Demande envoyée ! Activation sous 2h.")
+                        st.info(f"Note : {notes}")
+                    else: st.error("Infos invalides.")
+
+    # --- TAB 2 : OFFRE CORPORATE (NOUVEAU) ---
+    with tab_corp:
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.error("### 🧠 Pour Grandes Flottes & Industries")
+            st.write("La puissance de l'IA pour une gestion de flotte sans faille.")
+            st.markdown("""
+            * 🔥 **Tout du Pack PRO inclus**
+            * 🧠 **Intelligence Artificielle (IA)** : Le logiciel "apprend" le comportement de VOS engins.
+            * 📈 **Détection d'Anomalie Avancée** : Analyse statistique croisée.
+            * 🛡️ **Mode Audit Juridique** : Rapports renforcés pour litiges.
+            * 👑 **Support VIP** : Ligne directe avec les ingénieurs.
+            """)
+            st.metric("Tarif Annuel", "100 000 FCFA", "Rentabilisé au 1er vol évité")
+        
+        with c2:
+            st.write("### 💳 Paiement CORPORATE")
+            st.caption("Investissement B2B déductible de vos charges.")
+            with st.form("pay_corp"):
+                phone_pay = st.text_input("Numéro Mobile Money", placeholder="6XX XXX XXX", key="pay_corp_phone")
+                tx_ref = st.text_input("ID Transaction (SMS)", placeholder="Ex: CI8900...", key="pay_corp_ref")
+                sponsor_code = st.text_input("Code Parrain", placeholder="Optionnel", key="pay_corp_parrain")
+                
+                if st.form_submit_button("ACTIVER LICENCE CORPORATE (100 000 F)"):
+                    if len(phone_pay) > 8 and len(tx_ref) > 4:
+                        notes = f"Offre: CORPORATE | Parrain: {sponsor_code}" if sponsor_code else "Offre: CORPORATE"
+                        # Montant fixé à 100 000
+                        st.session_state.db.create_transaction(
+                            st.session_state['user'], 100000, "OM/MOMO", tx_ref, phone_pay
+                        )
+                        st.success("Demande VIP reçue ! Activation prioritaire.")
+                        st.info(f"Note : {notes}")
+                    else: st.error("Infos invalides.")
+
+    # --- TAB 3 : COMPARATIF ---
+    with tab_comp:
+        st.write("### ⚖️ Choisissez votre arme anti-fraude")
+        st.markdown("""
+        <table class="compare-table">
+            <tr>
+                <th style="background-color:#eee; color:#333;">Fonctionnalités</th>
+                <th style="background-color:#ccc; color:#555;">DISCOVERY (Gratuit)</th>
+                <th style="background-color:#28a745;">PRO (50k/an)</th>
+                <th style="background-color:#dc3545;">CORPORATE (100k/an)</th>
+            </tr>
+            <tr>
+                <td class="compare-feature">Nombre d'Audits</td>
+                <td>3 max</td>
+                <td>Illimité</td>
+                <td>Illimité</td>
+            </tr>
+            <tr>
+                <td class="compare-feature">Rapports PDF</td>
+                <td>❌</td>
+                <td>✅</td>
+                <td>✅ (Marque Blanche)</td>
+            </tr>
+            <tr>
+                <td class="compare-feature">Calibration Engins</td>
+                <td>✅</td>
+                <td>✅</td>
+                <td>✅</td>
+            </tr>
+             <tr>
+                <td class="compare-feature">IA Auto-Apprenante</td>
+                <td>❌</td>
+                <td>❌</td>
+                <td>✅ (Cerveau Moteur)</td>
+            </tr>
+            <tr>
+                <td class="compare-feature">Support Technique</td>
+                <td>Standard</td>
+                <td>Prioritaire</td>
+                <td>VIP (Ligne Directe)</td>
+            </tr>
+             <tr>
+                <td class="compare-feature">Cible Idéale</td>
+                <td>Curieux / Test</td>
+                <td>Indépendant / PME</td>
+                <td>Grande Flotte / BTP</td>
+            </tr>
+        </table>
+        """, unsafe_allow_html=True)
 
 # --- PAGES FONCTIONNELLES ---
 def render_audit_page():
@@ -490,9 +572,8 @@ def main():
     elif menu == "🎯 Calibration": render_calibration_page()
     elif menu == "🧠 Intelligence": render_learning_page()
     elif menu == "🔐 Admin": render_admin_page()
-    elif menu == "💎 Devenir PRO": 
-        # Utilisation de notre nouvelle fonction locale
-        render_payment_page_local()
+    elif menu == "💎 Devenir PRO": render_payment_page_local()
+    elif menu == "💎 Upgrade Licence": render_payment_page_local()
 
 if __name__ == "__main__":
     main()
