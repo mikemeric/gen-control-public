@@ -1,5 +1,5 @@
 # ==============================================================================
-# GEN-CONTROL V1.1.2 - FINAL (Patch Streamlit 2026)
+# GEN-CONTROL V1.1.3 - PATCH FINAL ANTI-CRASH
 # ==============================================================================
 import streamlit as st
 import os
@@ -8,6 +8,7 @@ from datetime import datetime
 import uuid
 import urllib.parse
 
+# Imports des modules (assurez-vous que ces fichiers sont présents)
 from database import ThreadSafeDatabase
 from security import EnhancedSecurityManager
 from physics import IsoWillansModel, ReferenceEngineLibrary, AtmosphericParams
@@ -17,6 +18,7 @@ from payments import render_payment_page
 
 st.set_page_config(page_title="GEN-CONTROL V1.1", page_icon="🛡️", layout="wide", initial_sidebar_state="expanded")
 
+# --- CSS ---
 st.markdown("""
 <style>
     .main-header { font-size: 1.5rem; font-weight: bold; color: #003366; margin-bottom: 1rem; border-bottom: 2px solid #FF4B4B; padding-bottom: 5px; }
@@ -39,23 +41,42 @@ def init_session():
         st.session_state.learning = AdaptiveLearningEngine()
         st.session_state.pdf_gen = PDFReportGenerator()
 
+# --- FONCTION SIDEBAR SÉCURISÉE ---
 def render_sidebar():
+    # SÉCURITÉ ABSOLUE : Si pas de token, on n'affiche rien et on sort.
+    if 'auth_token' not in st.session_state:
+        return None
+
     with st.sidebar:
         st.title("GEN-CONTROL")
         st.caption("V1.1.2 (Final)")
-        if 'user' in st.session_state:
-            tier = st.session_state.get('license_tier', 'DISCOVERY')
-            st.info(f"👤 {st.session_state['user']}\n🏷️ Licence : {tier}")
-            opts = ["📱 Audit Terrain", "🎯 Calibration"]
-            if tier == 'DISCOVERY': opts.append("💎 Devenir PRO")
-            if tier in ['PRO', 'CORPORATE']: opts.append("🧠 Intelligence")
-            if st.session_state.get('role') == 'admin': opts.append("🔐 Admin")
-            menu = st.radio("Navigation", opts)
-            if st.button("Déconnexion"): del st.session_state['auth_token']; st.rerun()
-        else: menu = "Login"
+        
+        # Infos Utilisateur
+        tier = st.session_state.get('license_tier', 'DISCOVERY')
+        user = st.session_state.get('user', 'Utilisateur')
+        st.info(f"👤 {user}\n🏷️ Licence : {tier}")
+        
+        # Menu de Navigation
+        opts = ["📱 Audit Terrain", "🎯 Calibration"]
+        if tier == 'DISCOVERY': opts.append("💎 Devenir PRO")
+        if tier in ['PRO', 'CORPORATE']: opts.append("🧠 Intelligence")
+        if st.session_state.get('role') == 'admin': opts.append("🔐 Admin")
+        
+        menu = st.radio("Navigation", opts)
+        
+        st.markdown("---")
+        
+        # BOUTON DÉCONNEXION BLINDÉ (Utilisation de .pop au lieu de del)
+        if st.button("Déconnexion", type="primary", use_container_width=True):
+            st.session_state.pop('auth_token', None)
+            st.session_state.pop('user', None)
+            st.session_state.pop('role', None)
+            st.rerun()
+
         st.markdown("---")
         st.warning("⚠️ **AVIS JURIDIQUE**")
         st.markdown("<div style='font-size:0.7em; text-align:justify;'>Outil d'aide à la décision technique (ISO 15550). Résultats non contractuels.</div>", unsafe_allow_html=True)
+        
         return menu
 
 def render_auth():
@@ -102,7 +123,6 @@ def render_audit_page():
     st.markdown(f'<div class="main-header">📱 Audit Terrain <span style="font-size:0.6em; color:grey">({tier})</span></div>', unsafe_allow_html=True)
     db = st.session_state.db
     
-    # Récupération Facteur Correction Global (Config Admin)
     try: aging_val = float(db.get_config_value("AGING_FACTOR", "1.05"))
     except: aging_val = 1.05
 
@@ -244,7 +264,7 @@ def render_calibration_page():
 
     st.markdown("### 📋 Parc Calibré")
     rows = st.session_state.db.execute_read("SELECT equipment_id, equipment_name, profile_base, power_kw FROM equipment ORDER BY created_at DESC")
-    if rows: st.dataframe(rows, width="stretch") # FIX APPLIQUÉ ICI
+    if rows: st.dataframe(rows, use_container_width=True)
 
 def render_learning_page():
     st.markdown('<div class="main-header">🧠 Intelligence</div>', unsafe_allow_html=True)
@@ -275,33 +295,4 @@ def render_admin_page():
             c1, c2, c3 = st.columns([2,1,1])
             c1.write(f"📅 {p['timestamp']} | {p['username']} | {p['amount']}F (ID: {p['mobile_money_id']})")
             if c2.button("✅", key=f"v_{p['tx_ref']}"): st.session_state.db.approve_transaction(p['tx_ref']); st.rerun()
-            if c3.button("❌", key=f"x_{p['tx_ref']}"): st.session_state.db.reject_transaction(p['tx_ref']); st.rerun()
-            
-        st.markdown("---")
-        st.subheader("2. Historique (Validés/Rejetés)")
-        history = st.session_state.db.execute_read("SELECT * FROM transactions WHERE status != 'PENDING' ORDER BY timestamp DESC LIMIT 50")
-        if history: st.dataframe(history, width="stretch") # FIX APPLIQUÉ ICI
-        else: st.caption("Aucun historique.")
-
-    with t3: st.dataframe(st.session_state.db.execute_read("SELECT * FROM users"), width="stretch") # FIX APPLIQUÉ ICI
-    with t4:
-        db_files = [f for f in os.listdir('.') if f.endswith('.db')]
-        if db_files:
-            with open(db_files[0], "rb") as f: st.download_button("⬇️ Backup", f, file_name="BACKUP.db")
-        up = st.file_uploader("Restaurer .db")
-        if up and st.button("RESTAURER"):
-            with open("gen_control_v1_1_secure.db", "wb") as f: f.write(up.getbuffer())
-            st.success("Restauré !"); time.sleep(2); st.rerun()
-
-def main():
-    init_session()
-    if 'auth_token' not in st.session_state: render_sidebar(); render_auth(); return
-    menu = render_sidebar()
-    if menu == "📱 Audit Terrain": render_audit_page()
-    elif menu == "🎯 Calibration": render_calibration_page()
-    elif menu == "🧠 Intelligence": render_learning_page()
-    elif menu == "🔐 Admin": render_admin_page()
-    elif menu == "💎 Devenir PRO": render_payment_page()
-
-if __name__ == "__main__":
-    main()
+            if c3.button("❌", key=f"x_{p['tx_ref']}"): st.session_state.db.reject_transaction(p['tx_ref
