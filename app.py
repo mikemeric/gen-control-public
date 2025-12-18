@@ -1,14 +1,17 @@
 # ==============================================================================
-# GEN-CONTROL V1.1.8 - PATCH FINAL (TARIFS 2025 & CORPORATE)
+# GEN-CONTROL V1.1.9 - VERSION STABLE & SÉCURISÉE
+# (Intègre: Patch Profil, Fix Redirection Inscription, Sécurité Bcrypt)
 # ==============================================================================
 import streamlit as st
 import os
 import time
+import bcrypt  # <--- INDISPENSABLE POUR LA SÉCURITÉ
 from datetime import datetime
 import uuid
 import urllib.parse
 
 # Imports des modules techniques
+# Assurez-vous que les fichiers database.py, security.py, etc. sont bien présents
 from database import ThreadSafeDatabase
 from security import EnhancedSecurityManager
 from physics import IsoWillansModel, ReferenceEngineLibrary, AtmosphericParams
@@ -84,21 +87,22 @@ def init_session():
         st.session_state.learning = AdaptiveLearningEngine()
         st.session_state.pdf_gen = PDFReportGenerator()
 
-# --- SIDEBAR ---
+# --- SIDEBAR (MENU) ---
 def render_sidebar():
     if 'auth_token' not in st.session_state:
         return None
 
     with st.sidebar:
         st.title("GEN-CONTROL")
-        st.caption("V1.1.8 (Final)")
+        st.caption("V1.1.9 (Stable)")
         
         tier = st.session_state.get('license_tier', 'DISCOVERY')
         user = st.session_state.get('user', 'Utilisateur')
         st.info(f"👤 {user}\n🏷️ Licence : {tier}")
         
+        # --- MENU PRINCIPAL ---
         opts = ["📱 Audit Terrain", "🎯 Calibration"]
-        # On affiche toujours l'option d'upgrade
+        opts.append("👤 Mon Profil") # <--- NOUVEAU
         opts.append("💎 Offres & Licences")
         
         if tier in ['PRO', 'CORPORATE']: opts.append("🧠 Intelligence")
@@ -109,9 +113,7 @@ def render_sidebar():
         st.markdown("---")
         
         if st.button("Déconnexion", type="primary", use_container_width=True):
-            st.session_state.pop('auth_token', None)
-            st.session_state.pop('user', None)
-            st.session_state.pop('role', None)
+            st.session_state.clear()
             st.rerun()
 
         st.markdown("---")
@@ -197,11 +199,14 @@ def render_auth():
                             new_user, new_pass, email, phone, company, referral, ip=ip
                         )
                         if ok: 
-                            st.success("Bienvenue ! Connectez-vous."); time.sleep(1); st.rerun()
+                            st.success("Compte créé ! Redirection...")
+                            # --- FIX REDIRECTION ---
+                            time.sleep(2)
+                            st.rerun()
                         else: 
                             st.error(f"Erreur: {msg}")
 
-# --- PAGE PAIEMENT & LICENCES (STRATÉGIE B2B) ---
+# --- PAGE PAIEMENT & LICENCES ---
 def render_payment_page_local():
     st.markdown('<div class="main-header">💎 Grille Tarifaire & Licences 2025</div>', unsafe_allow_html=True)
     
@@ -231,14 +236,13 @@ def render_payment_page_local():
                 
                 if st.form_submit_button("S'ABONNER (15 000 F)"):
                     if len(phone_pay) > 8 and len(tx_ref) > 4:
-                        notes = f"Offre: PRO | Parrain: {sponsor_code}" if sponsor_code else "Offre: PRO"
-                        st.session_state.db.create_transaction(
-                            st.session_state['user'], 15000, "OM/MOMO", tx_ref, phone_pay
+                        st.session_state.db.declare_manual_payment(
+                            tx_ref, st.session_state['user'], 15000, phone_pay
                         )
                         st.success("Activation en cours (Max 2h).")
                     else: st.error("Infos incomplètes.")
 
-    # --- 2. OFFRE CORPORATE (PREMIUM B2B) ---
+    # --- 2. OFFRE CORPORATE ---
     with tab_corp:
         st.error("### 🏢 L'arme absolue pour les Grandes Flottes & Industries")
         
@@ -249,7 +253,7 @@ def render_payment_page_local():
             C'est simple : Une seule anomalie carburant détectée rentabilise votre abonnement annuel.
             
             * 👑 **Multi-Utilisateurs** : Un compte Admin + Des comptes employés illimités.
-            * 🧠 **Intelligence Artificielle (IA)** : Le logiciel APPREND de vos engins (Active Learning).
+            * 🧠 **Intelligence Artificielle (IA)** : Le logiciel APPREND de vos engins.
             * 🎨 **Marque Blanche** : Vos rapports PDF avec VOTRE LOGO d'entreprise.
             * 💾 **Souveraineté des Données** : Export local des bases de données & Déploiement sur site possible.
             * 📞 **Support VIP** : Ligne directe Ingénieur dédié.
@@ -266,14 +270,13 @@ def render_payment_page_local():
                 
                 if st.form_submit_button("DEMANDER L'ACTIVATION CORPORATE"):
                     if len(phone_pay) > 8:
-                        notes = f"Offre: CORPORATE | Parrain: {sponsor_code}"
-                        st.session_state.db.create_transaction(
-                            st.session_state['user'], 100000, "VIREMENT/OM", tx_ref, phone_pay
+                        st.session_state.db.declare_manual_payment(
+                            tx_ref or "CORP_DEMAND", st.session_state['user'], 100000, phone_pay
                         )
                         st.success("Votre demande est traitée en priorité absolue.")
                         st.info("Un ingénieur va vous contacter pour le déploiement.")
 
-    # --- 3. COMPARATIF (TABLEAU DU PDF) ---
+    # --- 3. COMPARATIF ---
     with tab_comp:
         st.write("### ⚖️ Tableau Comparatif des Licences 2025")
         st.markdown("""
@@ -283,12 +286,6 @@ def render_payment_page_local():
                 <th style="background-color:#eee; color:#555;">DISCOVERY<br>(Gratuit)</th>
                 <th style="background-color:#28a745;">PRO<br>(15 000 F/mois)</th>
                 <th style="background-color:#003366;">CORPORATE<br>(100 000 F/mois)</th>
-            </tr>
-            <tr>
-                <td class="compare-feature">Cible Idéale</td>
-                <td>Curieux / Test</td>
-                <td>Freelance / PME</td>
-                <td>Industries / Flottes</td>
             </tr>
             <tr>
                 <td class="compare-feature">Quota d'Audits</td>
@@ -529,6 +526,60 @@ def render_learning_page():
     else: 
         st.warning("Réservé CORPORATE")
 
+# --- NOUVEAU MODULE : PAGE PROFIL ---
+def render_profile_page():
+    st.markdown('<div class="main-header">👤 Mon Profil & Sécurité</div>', unsafe_allow_html=True)
+    
+    username = st.session_state.get('user')
+    if not username: return
+
+    db = st.session_state.db
+    user_data = db.execute_read("SELECT * FROM users WHERE username = ?", (username,))
+    
+    if not user_data:
+        st.error("Impossible de charger le profil.")
+        return
+
+    user = user_data[0] 
+
+    with st.container():
+        c1, c2, c3 = st.columns(3)
+        c1.info(f"**Identifiant :** {user['username']}")
+        c2.info(f"**Rôle :** {user['role']}")
+        c3.success(f"**Licence :** {user['license_tier']}")
+        
+        c4, c5 = st.columns(2)
+        c4.write(f"📧 **Email :** {user['email'] if user['email'] else 'Non renseigné'}")
+        c5.write(f"🏢 **Société :** {user['company_name'] if user['company_name'] else 'Non renseignée'}")
+
+    st.markdown("---")
+    st.subheader("🔐 Modifier mon mot de passe")
+    
+    with st.form("pwd_change_form"):
+        col_a, col_b = st.columns(2)
+        current_pwd = col_a.text_input("Mot de passe actuel", type="password")
+        new_pwd = col_b.text_input("Nouveau mot de passe", type="password")
+        confirm_pwd = col_b.text_input("Confirmer le nouveau", type="password")
+        
+        if st.form_submit_button("METTRE À JOUR LE MOT DE PASSE", type="primary"):
+            if new_pwd != confirm_pwd:
+                st.error("❌ Les nouveaux mots de passe ne correspondent pas.")
+            elif len(new_pwd) < 4:
+                st.error("❌ Le mot de passe est trop court.")
+            else:
+                stored_hash = user['password_hash']
+                if isinstance(stored_hash, str): stored_hash = stored_hash.encode('utf-8')
+                
+                if bcrypt.checkpw(current_pwd.encode('utf-8'), stored_hash):
+                    new_salt = bcrypt.gensalt()
+                    new_hash = bcrypt.hashpw(new_pwd.encode('utf-8'), new_salt)
+                    try:
+                        db.execute_write("UPDATE users SET password_hash = ? WHERE username = ?", (new_hash, username))
+                        st.success("✅ Mot de passe modifié ! Déconnexion..."); time.sleep(2)
+                        st.session_state.clear(); st.rerun()
+                    except Exception as e: st.error(f"Erreur technique : {str(e)}")
+                else: st.error("❌ L'ancien mot de passe est incorrect.")
+
 def render_admin_page():
     if st.session_state.get('role') != 'admin': return
     st.markdown('<div class="main-header">🔐 Admin QG</div>', unsafe_allow_html=True)
@@ -590,6 +641,7 @@ def main():
 
     if menu == "📱 Audit Terrain": render_audit_page()
     elif menu == "🎯 Calibration": render_calibration_page()
+    elif menu == "👤 Mon Profil": render_profile_page() # <--- LIEN VERS LA PAGE
     elif menu == "🧠 Intelligence": render_learning_page()
     elif menu == "🔐 Admin": render_admin_page()
     elif menu == "💎 Offres & Licences": render_payment_page_local()
