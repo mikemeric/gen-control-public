@@ -1,8 +1,8 @@
 # ==============================================================================
-# PHYSICS.PY - VERSION V2.0 (CORRECTIF CRASH TEST IDRISS)
+# PHYSICS.PY - VERSION V3.0 (CORRECTIF NAMING ERROR)
 # ==============================================================================
 import math
-import re  # Ajout Idriss : Nécessaire pour le nettoyage des chaînes de caractères
+import re
 
 class AtmosphericParams:
     def __init__(self, altitude_m, temperature_c):
@@ -32,48 +32,46 @@ class ReferenceEngineLibrary:
         return ReferenceEngineLibrary.ENGINE_DB.get(code, {})
 
 class IsoWillansModel:
+    # ATTENTION : Les arguments ici sont k_factor et b_factor
     def __init__(self, k_factor=0.25, b_factor=0.08, p_nom_kw=100):
         self.k = k_factor; self.b = b_factor; self.p_nom = p_nom_kw
 
     @classmethod
     def from_reference_data(cls, engine_code, power_override_kw=None):
-        # 1. Récupération des métadonnées
         meta = ReferenceEngineLibrary.get_metadata(engine_code)
         
-        # 2. Détermination de la source brute de puissance (Override ou Database)
+        # --- BLINDAGE DES ENTRÉES (Idriss) ---
         raw_power = power_override_kw if power_override_kw is not None else meta.get('power', 100.0)
         
-        # 3. PATCH SÉCURITÉ IDRISS (Nettoyage des entrées)
         try:
             if isinstance(raw_power, str):
-                # On enlève tout ce qui n'est pas chiffre ou point (ex: "300 kVA" -> "300")
+                # Nettoyage (ex: "300 kVA" -> 300.0)
                 clean_str = re.sub(r"[^0-9.]", "", raw_power)
                 if clean_str == "":
-                    base_power = 100.0 # Fallback si chaîne vide
+                    base_power = 100.0
                 else:
                     base_power = float(clean_str)
             else:
                 base_power = float(raw_power)
-        except Exception as e:
-            print(f"⚠️ [PHYSICS] Erreur conversion puissance: {raw_power}. Utilisation défaut 100kW.")
+        except Exception:
             base_power = 100.0
+        # -------------------------------------
 
-        # 4. Sélection du profil physique
         eng_type = meta.get('type', 'GE')
         
+        # CORRECTIF TYPEERROR : On utilise explicitement k_factor et b_factor
         if eng_type == 'GE': 
-            return cls(k=0.24, b=0.07, p_nom_kw=base_power)
+            return cls(k_factor=0.24, b_factor=0.07, p_nom_kw=base_power)
         elif eng_type == 'TRUCK': 
-            return cls(k=0.22, b=0.09, p_nom_kw=base_power)
+            return cls(k_factor=0.22, b_factor=0.09, p_nom_kw=base_power)
         else: 
-            return cls(k=0.26, b=0.10, p_nom_kw=base_power)
+            return cls(k_factor=0.26, b_factor=0.10, p_nom_kw=base_power)
 
     def predict_consumption(self, load_pct, atmospheric_params, aging_factor=1.05):
-        # Sécurisation aussi ici au cas où load_pct arrive en string
         try:
             load_decimal = float(load_pct) / 100.0
         except:
-            load_decimal = 0.5 # 50% par défaut en cas d'erreur
+            load_decimal = 0.5 
             
         alt_factor = 1 + (max(0, atmospheric_params.altitude_m - 1000) / 10000)
         temp_factor = 1 + (max(0, atmospheric_params.temperature_c - 25) / 500)
